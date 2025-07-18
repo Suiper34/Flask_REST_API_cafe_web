@@ -1,9 +1,9 @@
 from random import choice
 
 from flask import Flask, flash, jsonify, request
-from flask_restful import Api, Resource
+from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import String, select
+from sqlalchemy import String, select, update
 from sqlalchemy.exc import IntegrityError, NoSuchColumnError, NoSuchTableError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -43,17 +43,24 @@ api = Api(app, catch_all_404s=True)
 
 @app.route('/random')
 def random_cafe():
-    result = db.session.execute(select(Cafe))
-    all_cafes = result.scalars().all()
-    rand_cafe = choice(all_cafes)
-    return jsonify(cafe=rand_cafe.to_dict())
+    try:
+        result = db.session.execute(select(Cafe))
+        all_cafes = result.scalars().all()
+        rand_cafe = choice(all_cafes)
+        return jsonify(cafe=rand_cafe.to_dict())
+    except NoSuchTableError as e:
+        flash(f'Table doesn\'t exist: {e}', category='error')
 
 
 @app.route('/all-cafes')
 def all_cafes():
-    result = db.session.execute(select(Cafe))
-    all_cafes = result.scalars().all()
-    return jsonify(cafes=[cafe.to_dict() for cafe in all_cafes])
+    try:
+        result = db.session.execute(select(Cafe))
+        all_cafes = result.scalars().all()
+        return jsonify(cafes=[cafe.to_dict() for cafe in all_cafes])
+
+    except NoSuchTableError as e:
+        flash(f'Table doesn\'t exist: {e}!', category='error')
 
 
 @app.route('/search/<string:cafe_location>')
@@ -93,14 +100,32 @@ def add_cafe():
         )
         db.session.add(new_cafe)
         db.session.commit()
+        flash('Successfully added', category='success`')
         return jsonify(response={
             'success': 'Cafe successfully added!'
         })
 
     except (IntegrityError, ValueError) as e:
         return jsonify(response={
-            'error': f'failed to add cafe: {e}'
+            'error': f'failed to add cafe: {e}!'
         })
+
+
+@app.route('/change-coffee-price/<int:cafe_id>/<string:new_price>', methods=['PATCH'])
+def change_coffee_price(cafe_id: int, new_price: str):
+    cafe_to_update_coffee_price: Cafe = db.session.get(Cafe, cafe_id)
+    if not cafe_to_update_coffee_price:
+        flash('Cafe not recorded!', category='error')
+        return jsonify(response={
+            'error': 'Cafe to make update on is not recorded yet!'
+        })
+
+    cafe_to_update_coffee_price.coffee_price = new_price,
+    db.session.commit()
+    flash('Price updated successfully!', category='success')
+    return jsonify(response={
+        'success': 'Coffee price has been updated!'
+    })
 
 
 if __name__ == '__main__':
