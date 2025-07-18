@@ -111,8 +111,9 @@ def add_cafe():
         })
 
 
-@app.route('/change-coffee-price/<int:cafe_id>/<string:new_price>', methods=['PATCH'])
-def change_coffee_price(cafe_id: int, new_price: str):
+@app.route('/change-coffee-price/<int:cafe_id>', methods=['PATCH'])
+def change_coffee_price(cafe_id: int):
+    new_price: str = request.args.get('new_price')
     cafe_to_update_coffee_price: Cafe = db.session.get(Cafe, cafe_id)
     if not cafe_to_update_coffee_price:
         flash('Cafe not recorded!', category='error')
@@ -126,6 +127,12 @@ def change_coffee_price(cafe_id: int, new_price: str):
     return jsonify(response={
         'success': 'Coffee price has been updated!'
     })
+
+
+@app.route('/delete-cafe/<int:cafe_id>', methods=['DELETE'])
+def delete_cafe(cafe_id):
+    db.session.get(Cafe, cafe_id)
+    db.session.delete()
 
 
 if __name__ == '__main__':
