@@ -1,10 +1,11 @@
 from random import choice
 
-from flask import Flask, jsonify, flash
+from flask import Flask, flash, jsonify, request
+from flask_restful import Api, Resource
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import String, select
+from sqlalchemy.exc import IntegrityError, NoSuchColumnError, NoSuchTableError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from flask_restful import Resource, Api
 
 
 class Base(DeclarativeBase):
@@ -61,7 +62,7 @@ def cafes_in_location(location: str):
     if not the_location:
         flash('Location has no cafe recorded!', category='error')
         return jsonify(error={
-            'Not Found': f'Sorry, we ain\'t no cafe at {the_location}'
+            'Not Found': f'Sorry, we ain\'t get no cafe at {the_location}'
         })
     try:
         result = db.session.execute(
@@ -71,8 +72,35 @@ def cafes_in_location(location: str):
         return jsonify(
             cafe_at_location=[cafe.to_dict() for cafe in the_location_cafes])
 
-    except Exception as e:
+    except (Exception) as e:
         flash(f'{e}')
+
+
+@app.route('/add-cafe', methods=['POST'])
+def add_cafe():
+    try:
+        new_cafe = Cafe(
+            name=request.form.get('name'),
+            map_url=request.form.get('map_url'),
+            img_url=request.form.get('img_url'),
+            location=request.form.get('location'),
+            seats=request.form.get('seats'),
+            has_toilet=request.form.get('has_toilet', type=bool),
+            has_wifi=request.form.get('has_wifi', type=bool),
+            has_sockets=request.form.get('has_sockets', type=bool),
+            can_take_calls=request.form.get('can_take_calls', type=bool),
+            coffee_price=request.form.get('coffee_price'),
+        )
+        db.session.add(new_cafe)
+        db.session.commit()
+        return jsonify(response={
+            'success': 'Cafe successfully added!'
+        })
+
+    except (IntegrityError, ValueError) as e:
+        return jsonify(response={
+            'error': f'failed to add cafe: {e}'
+        })
 
 
 if __name__ == '__main__':
