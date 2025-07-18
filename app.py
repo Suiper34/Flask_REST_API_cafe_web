@@ -1,6 +1,6 @@
 from random import choice
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, flash
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import String, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -29,7 +29,8 @@ class Cafe(db.Model):
 
     def to_dict(self) -> dict:
         return {
-            column.name: getattr(self, column.name) for column in self.__table__.columns
+            column.name: getattr(self, column.name)
+            for column in self.__table__.columns
         }
 
 
@@ -52,6 +53,26 @@ def all_cafes():
     result = db.session.execute(select(Cafe))
     all_cafes = result.scalars().all()
     return jsonify(cafes=[cafe.to_dict() for cafe in all_cafes])
+
+
+@app.route('/search/<string:cafe_location>')
+def cafes_in_location(location: str):
+    the_location = db.session.get(Cafe, location)
+    if not the_location:
+        flash('Location has no cafe recorded!', category='error')
+        return jsonify(error={
+            'Not Found': f'Sorry, we ain\'t no cafe at {the_location}'
+        })
+    try:
+        result = db.session.execute(
+            select(Cafe).where(Cafe.location == the_location)
+        )
+        the_location_cafes = result.scalars().all()
+        return jsonify(
+            cafe_at_location=[cafe.to_dict() for cafe in the_location_cafes])
+
+    except Exception as e:
+        flash(f'{e}')
 
 
 if __name__ == '__main__':
