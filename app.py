@@ -3,8 +3,8 @@ from random import choice
 from flask import Flask, flash, jsonify, request
 from flask_restful import Api
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import String, select, update
-from sqlalchemy.exc import IntegrityError, NoSuchColumnError, NoSuchTableError
+from sqlalchemy import String, select
+from sqlalchemy.exc import IntegrityError, NoSuchTableError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -70,7 +70,7 @@ def cafes_in_location(location: str):
         flash('Location has no cafe recorded!', category='error')
         return jsonify(error={
             'Not Found': f'Sorry, we ain\'t get no cafe at {the_location}'
-        })
+        }), 404
     try:
         result = db.session.execute(
             select(Cafe).where(Cafe.location == the_location)
@@ -103,7 +103,7 @@ def add_cafe():
         flash('Successfully added', category='success`')
         return jsonify(response={
             'success': 'Cafe successfully added!'
-        })
+        }), 200
 
     except (IntegrityError, ValueError) as e:
         return jsonify(response={
@@ -117,9 +117,9 @@ def change_coffee_price(cafe_id: int):
     cafe_to_update_coffee_price: Cafe = db.session.get(Cafe, cafe_id)
     if not cafe_to_update_coffee_price:
         flash('Cafe not recorded!', category='error')
-        return jsonify(response={
-            'error': 'Cafe to make update on is not recorded yet!'
-        })
+        return jsonify(error={
+            'Not found': 'Cafe to make update on is not recorded yet!'
+        }), 404
 
     cafe_to_update_coffee_price.coffee_price = new_price,
     db.session.commit()
@@ -129,10 +129,27 @@ def change_coffee_price(cafe_id: int):
     })
 
 
-@app.route('/delete-cafe/<int:cafe_id>', methods=['DELETE'])
+@app.route('/delete-cafe/<int:cafe_id>', methods=['DELETE', 'POST', 'GET'])
 def delete_cafe(cafe_id):
-    db.session.get(Cafe, cafe_id)
-    db.session.delete()
+    API_KEY = request.args.get('api-key')
+    cafe_to_delete = db.session.get(Cafe, cafe_id)
+
+    if not API_KEY or API_KEY != 'Authorization_Key':
+        return jsonify(error={
+            'Forbidden': 'Not allowed, wrong API key!'
+        }), 403
+    else:
+        if not cafe_to_delete:
+            return jsonify(error={
+                'Not found': 'Cafe not found!'
+            }), 404
+
+        try:
+            db.session.delete(cafe_to_delete)
+            db.session.commit()
+            flash('Cafe deleted', category='success')
+        except Exception as e:
+            flash(f'Failed to delete cafe!: {e}', category='danger')
 
 
 if __name__ == '__main__':
