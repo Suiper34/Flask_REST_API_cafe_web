@@ -43,6 +43,15 @@ api = Api(app, catch_all_404s=True)
 
 @app.route('/random')
 def random_cafe():
+    """
+    GET:
+        retrieves a random cafe from the database.
+
+    Returns:
+        JSON: a single random cafe's details
+        Error: if cafe table doesn't exist (flashes error message)
+    """
+
     try:
         result = db.session.execute(select(Cafe))
         all_cafes = result.scalars().all()
@@ -54,6 +63,14 @@ def random_cafe():
 
 @app.route('/all-cafes')
 def all_cafes():
+    """
+    GET:
+        retrieves all cafes from the database.
+
+    Returns:
+        JSON: list of all cafes' details
+        Error: if cafe table doesn't exist (flashes error message)
+    """
     try:
         result = db.session.execute(select(Cafe))
         all_cafes = result.scalars().all()
@@ -65,6 +82,17 @@ def all_cafes():
 
 @app.route('/search/<string:cafe_location>')
 def cafes_in_location(location: str):
+    """
+    GET:
+        retrieves all cafes in a specified location.
+
+    Args:
+        location (str): the location to search for cafes
+
+    Returns:
+        JSON: list of cafes in the specified location
+        Error 404: if no cafes found in location (with error message)
+    """
     the_location = db.session.get(Cafe, location)
     if not the_location:
         flash('Location has no cafe recorded!', category='error')
@@ -85,6 +113,15 @@ def cafes_in_location(location: str):
 
 @app.route('/add-cafe', methods=['POST'])
 def add_cafe():
+    """
+    POST:
+        adds a new cafe to the database.
+
+    Returns:
+        JSON: success/error message
+        200: if cafe added successfully
+        Error: if cafe exists or data is invalid
+    """
     try:
         new_cafe = Cafe(
             name=request.form.get('name'),
@@ -113,6 +150,21 @@ def add_cafe():
 
 @app.route('/change-coffee-price/<int:cafe_id>', methods=['PATCH'])
 def change_coffee_price(cafe_id: int):
+    """
+    PATCH
+        updates coffee price for a specific cafe.
+
+    Args:
+        cafe_id (int): ID of cafe to update
+
+    Query Parameters:
+        new_price (str): new coffee price
+
+    Returns:
+        JSON: success/error message
+        200: if price updated successfully
+        404: if cafe not found
+    """
     new_price: str = request.args.get('new_price')
     cafe_to_update_coffee_price: Cafe = db.session.get(Cafe, cafe_id)
     if not cafe_to_update_coffee_price:
@@ -131,6 +183,22 @@ def change_coffee_price(cafe_id: int):
 
 @app.route('/delete-cafe/<int:cafe_id>', methods=['DELETE', 'POST', 'GET'])
 def delete_cafe(cafe_id):
+    """
+    DELETE/POST/GET /delete-cafe/<cafe_id>
+        deletes a cafe from the database (requires API key).
+
+    Args:
+        cafe_id (int): ID of cafe to delete
+
+    Query Parameters:
+        api-key (str): authorization key (must be "Authorization_Key")
+
+    Returns:
+        JSON: success/error message
+        200: if deleted successfully
+        403: if API key is missing or invalid
+        404: if cafe not found
+    """
     API_KEY = request.args.get('api-key')
     cafe_to_delete = db.session.get(Cafe, cafe_id)
 
